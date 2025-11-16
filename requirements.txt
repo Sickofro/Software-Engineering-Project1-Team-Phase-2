@@ -9,3 +9,5 @@ flake8>=5.0.0            # Linting
 isort>=5.0.0             # Import sorting
 mypy>=1.0.0              # Type checking
 black>=24.0.0            # Code formatting
+boto3>=1.28.0            # AWS SDK
+botocore>=1.31.0         # AWS core services
