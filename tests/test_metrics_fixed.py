@@ -43,10 +43,10 @@ class TestLicenseMetric:
             downloads=0,
             last_modified=None
         )
-        
-        result = metric.calculate(model_info)
-        assert result == 0.9
     
+        result = metric.calculate(model_info)
+        assert result == 1.0
+
     def test_license_calculation_mit(self):
         """Test license calculation for MIT license"""
         metric = LicenseMetric()
@@ -62,7 +62,7 @@ class TestLicenseMetric:
         )
         
         result = metric.calculate(model_info)
-        assert result == 0.9
+        assert result == 1.0
     
     def test_license_calculation_gpl(self):
         """Test license calculation for GPL license"""

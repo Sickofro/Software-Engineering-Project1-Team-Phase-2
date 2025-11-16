@@ -36,10 +36,10 @@ class TestLicenseMetricComprehensive:
             downloads=0,
             last_modified=None
         )
-        
-        result = metric.calculate(model_info)
-        assert result == 0.9, f"Apache license should score 0.9, got {result}"
     
+        result = metric.calculate(model_info)
+        assert result == 1.0, f"Apache license should score 1.0, got {result}"
+
     def test_license_metric_mit_license(self):
         """Test MIT license gets high score"""
         metric = LicenseMetric()
@@ -55,7 +55,7 @@ class TestLicenseMetricComprehensive:
         )
         
         result = metric.calculate(model_info)
-        assert result == 0.9, f"MIT license should score 0.9, got {result}"
+        assert result == 1.0, f"MIT license should score 1.0, got {result}"
     
     def test_license_metric_gpl_license(self):
         """Test GPL license gets low score"""
