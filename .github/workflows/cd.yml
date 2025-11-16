@@ -4,6 +4,8 @@ on:
   push:
     branches: [ main ]
     tags: ['v*']
+  # Allow manual runs from the Actions UI (so you can test this branch without merging to main)
+  workflow_dispatch: {}
 
 jobs:
   lint-and-test:
@@ -98,7 +100,8 @@ jobs:
   deploy-to-aws:
     needs: build-and-publish
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Deploy when pushing to main OR when the workflow is manually dispatched
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
