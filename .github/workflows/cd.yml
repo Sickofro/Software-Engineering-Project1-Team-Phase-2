@@ -103,8 +103,8 @@ jobs:
   deploy-to-aws:
     needs: build-and-publish
     runs-on: ubuntu-latest
-    # Deploy when pushing to main OR when the workflow is manually dispatched
-    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || github.event_name == 'workflow_dispatch'
+    # Deploy when pushing to main OR when manually dispatched on any branch (for testing)
+    if: github.event_name == 'workflow_dispatch' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
