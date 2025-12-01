@@ -158,3 +158,42 @@ class URLParser:
         except Exception as e:
             self.logger.error(f"Failed to parse code URL {url}: {str(e)}")
             return None
+    
+    def parse_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse any supported URL and return basic info as a dict
+        This is a convenience method for the API endpoints
+        """
+        try:
+            url_type = self.identify_url_type(url)
+            
+            if url_type == "MODEL":
+                model_info = self.parse_model_url(url)
+                if model_info:
+                    return {
+                        'name': model_info.name,
+                        'type': 'model',
+                        'url': url
+                    }
+            elif url_type == "DATASET":
+                dataset_info = self.parse_dataset_url(url)
+                if dataset_info:
+                    return {
+                        'name': dataset_info.name,
+                        'type': 'dataset',
+                        'url': url
+                    }
+            elif url_type == "CODE":
+                code_info = self.parse_code_url(url)
+                if code_info:
+                    return {
+                        'name': code_info.name,
+                        'type': 'code',
+                        'url': url
+                    }
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Failed to parse URL {url}: {str(e)}")
+            return None

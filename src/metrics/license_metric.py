@@ -19,8 +19,8 @@ class LicenseMetric:
         
         # License compatibility with LGPLv2.1
         self.license_scores = {
-            'apache-2.0': 1.0,  # Apache 2.0 is fully compatible
-            'mit': 1.0,  # MIT is fully compatible
+            'apache-2.0': 0.9,  # Apache 2.0 is fully compatible
+            'mit': 0.9,  # MIT is fully compatible
             'bsd-3-clause': 1.0,  # BSD is fully compatible
             'bsd-2-clause': 1.0,  # BSD is fully compatible
             'lgpl-2.1': 1.0,
