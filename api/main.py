@@ -4,9 +4,11 @@ Trustworthy Model Registry API
 """
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import logging
 import time
+import os
 
 from .config import settings
 from .routes import health, artifacts, auth, tracks, rating, cost, lineage, license_check
@@ -76,6 +78,28 @@ app.include_router(auth.router, tags=["Authentication"])
 app.include_router(tracks.router, tags=["Tracks"])
 
 
+# Mount static files and serve frontend
+# Get the directory where this file is located
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Frontend is one level up from api/ directory
+FRONTEND_DIR = os.path.join(os.path.dirname(CURRENT_DIR), "frontend")
+
+if os.path.exists(FRONTEND_DIR):
+    # Mount static files (CSS, JS, images)
+    static_dir = os.path.join(FRONTEND_DIR, "static")
+    if os.path.exists(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    
+    # Serve index.html at /ui
+    @app.get("/ui")
+    async def serve_frontend():
+        """Serve the frontend interface"""
+        index_path = os.path.join(FRONTEND_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"error": "Frontend not found"}
+
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -84,7 +108,8 @@ async def root():
         "service": settings.app_name,
         "version": settings.app_version,
         "status": "running",
-        "docs": "/docs"
+        "docs": "/docs",
+        "ui": "/ui"
     }
 
 

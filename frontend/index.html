@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Evaluator - Trustworthy Model Registry</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 ML Evaluator</h1>
+            <p class="subtitle">Trustworthy Model Registry - ECE 461 Phase 2</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-button active" data-tab="rating">Rating</button>
+            <button class="tab-button" data-tab="cost">Cost Analysis</button>
+            <button class="tab-button" data-tab="lineage">Lineage</button>
+            <button class="tab-button" data-tab="license">License Check</button>
+        </nav>
+
+        <!-- Rating Tab -->
+        <div id="rating" class="tab-content active">
+            <h2>📊 Rate ML Artifact</h2>
+            <p class="description">Evaluate ML artifacts using 10 comprehensive metrics including bus factor, code quality, and performance.</p>
+            
+            <form id="ratingForm" class="form">
+                <div class="form-group">
+                    <label for="ratingUrl">Artifact URL</label>
+                    <input 
+                        type="text" 
+                        id="ratingUrl" 
+                        placeholder="https://huggingface.co/bert-base-uncased or https://github.com/owner/repo"
+                        required
+                    />
+                    <small>Enter a HuggingFace model or GitHub repository URL</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Calculate Rating</button>
+            </form>
+
+            <div id="ratingResult" class="result-container"></div>
+        </div>
+
+        <!-- Cost Tab -->
+        <div id="cost" class="tab-content">
+            <h2>💰 Cost Analysis</h2>
+            <p class="description">Calculate the download and storage costs for ML artifacts.</p>
+            
+            <form id="costForm" class="form">
+                <div class="form-group">
+                    <label for="costUrl">Artifact URL</label>
+                    <input 
+                        type="text" 
+                        id="costUrl" 
+                        placeholder="https://huggingface.co/bert-base-uncased"
+                        required
+                    />
+                    <small>Supports HuggingFace models and GitHub repositories</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Analyze Cost</button>
+            </form>
+
+            <div id="costResult" class="result-container"></div>
+        </div>
+
+        <!-- Lineage Tab -->
+        <div id="lineage" class="tab-content">
+            <h2>🌳 Artifact Lineage</h2>
+            <p class="description">Extract dependency graphs showing base models and training datasets.</p>
+            
+            <form id="lineageForm" class="form">
+                <div class="form-group">
+                    <label for="lineageUrl">Artifact URL</label>
+                    <input 
+                        type="text" 
+                        id="lineageUrl" 
+                        placeholder="https://huggingface.co/distilbert-base-uncased"
+                        required
+                    />
+                    <small>View the complete dependency graph</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Extract Lineage</button>
+            </form>
+
+            <div id="lineageResult" class="result-container"></div>
+        </div>
+
+        <!-- License Tab -->
+        <div id="license" class="tab-content">
+            <h2>⚖️ License Compatibility</h2>
+            <p class="description">Check if an artifact's license is compatible with your repository.</p>
+            
+            <form id="licenseForm" class="form">
+                <div class="form-group">
+                    <label for="licenseArtifactUrl">Artifact URL</label>
+                    <input 
+                        type="text" 
+                        id="licenseArtifactUrl" 
+                        placeholder="https://huggingface.co/bert-base-uncased"
+                        required
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="licenseRepoUrl">Repository URL</label>
+                    <input 
+                        type="text" 
+                        id="licenseRepoUrl" 
+                        placeholder="https://github.com/owner/repo"
+                        required
+                    />
+                </div>
+                <button type="submit" class="btn btn-primary">Check Compatibility</button>
+            </form>
+
+            <div id="licenseResult" class="result-container"></div>
+        </div>
+
+        <footer>
+            <p>API Status: <span id="apiStatus" class="status-indicator">●</span></p>
+            <p class="footer-text">ECE 461/Fall 2025 - Trustworthy Model Registry</p>
+        </footer>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>
