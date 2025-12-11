@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: ECE 461 Trustworthy Model Registry - Serverless API
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        DYNAMODB_ARTIFACTS_TABLE: !Ref ArtifactsTable
+        DYNAMODB_RATINGS_TABLE: !Ref RatingsTable
+        DYNAMODB_USERS_TABLE: !Ref UsersTable
+        DYNAMODB_AUDIT_TABLE: !Ref AuditLogTable
+
+Resources:
+  # Lambda Function
+  MLEvaluatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: api.main.handler
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            ApiId: !Ref ServerlessHttpApi
+        RootApiEvent:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: ANY
+            ApiId: !Ref ServerlessHttpApi
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ArtifactsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RatingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogTable
+        - S3CrudPolicy:
+            BucketName: !Ref ArtifactsBucket
+
+  # HTTP API Gateway
+  ServerlessHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - "*"
+
+  # DynamoDB Tables
+  ArtifactsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Artifacts
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  RatingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Ratings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: artifact_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: artifact_id
+          KeyType: HASH
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: username
+          AttributeType: S
+      KeySchema:
+        - AttributeName: username
+          KeyType: HASH
+
+  AuditLogTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AuditLog
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  # S3 Bucket for artifacts
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'ml-evaluator-artifacts-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  FrontendUrl:
+    Description: Frontend URL
+    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/ui'
+  ArtifactsTableName:
+    Description: DynamoDB Artifacts table
+    Value: !Ref ArtifactsTable
+  RatingsTableName:
+    Description: DynamoDB Ratings table
+    Value: !Ref RatingsTable

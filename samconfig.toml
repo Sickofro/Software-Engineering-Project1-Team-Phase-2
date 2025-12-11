@@ -1,0 +1,11 @@
+version = 0.1
+
+[default.build.parameters]
+manifest = "requirements-lambda.txt"
+
+[default.deploy.parameters]
+stack_name = "ml-evaluator-stack"
+resolve_s3 = true
+s3_prefix = "ml-evaluator"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"

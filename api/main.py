@@ -2,23 +2,38 @@
 Main FastAPI application for ECE 461 Phase 2
 Trustworthy Model Registry API
 """
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 import logging
-import time
-import os
+import sys
 
-from .config import settings
-from .routes import health, artifacts, auth, tracks, rating, cost, lineage, license_check
-
-# Setup logging
+# Setup basic logging FIRST so we can see import errors
 logging.basicConfig(
-    level=logging.INFO if not settings.debug else logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
+logger.info("=== Starting Lambda initialization ===")
+
+try:
+    from fastapi import FastAPI, Request
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse, FileResponse
+    from fastapi.staticfiles import StaticFiles
+    import time
+    import os
+    logger.info("Core imports successful")
+
+    from .config import settings
+    logger.info(f"Config loaded - use_mock_db={settings.use_mock_db}")
+    
+    from .routes import health, artifacts, auth, tracks, rating, cost, lineage, license_check
+    logger.info("All route imports successful")
+except Exception as e:
+    logger.error(f"Import error: {str(e)}", exc_info=True)
+    raise
+
+# Setup logging
+logger.info("Setting up logging configuration")
 
 # Create FastAPI app
 app = FastAPI(
@@ -112,6 +127,10 @@ async def root():
         "ui": "/ui"
     }
 
+
+# Lambda handler
+from mangum import Mangum
+handler = Mangum(app, lifespan="off")
 
 if __name__ == "__main__":
     import uvicorn

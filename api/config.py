@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Database Settings
-    use_mock_db: bool = True  # Use in-memory mock database by default
+    use_mock_db: bool = False  # Use real DynamoDB in Lambda
     
     # AWS Settings
     aws_region: str = "us-east-1"

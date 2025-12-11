@@ -24,44 +24,37 @@ else:
     
     def get_dynamodb_resource():
         """Get DynamoDB resource (for high-level operations)"""
-        config = Config(region_name=settings.aws_region)
-        
-        kwargs = {
-            'region_name': settings.aws_region,
-            'config': config
-        }
-        
-        # Use custom endpoint for local development
+        # In Lambda, just use default credentials from IAM role
+        # Don't pass explicit credentials - let boto3 use the IAM role
         if settings.dynamodb_endpoint_url:
-            kwargs['endpoint_url'] = settings.dynamodb_endpoint_url
-            kwargs['aws_access_key_id'] = 'dummy'
-            kwargs['aws_secret_access_key'] = 'dummy'
-        elif settings.aws_access_key_id and settings.aws_secret_access_key:
-            kwargs['aws_access_key_id'] = settings.aws_access_key_id
-            kwargs['aws_secret_access_key'] = settings.aws_secret_access_key
-        
-        return boto3.resource('dynamodb', **kwargs)
+            # Local development with custom endpoint
+            return boto3.resource(
+                'dynamodb',
+                region_name=settings.aws_region,
+                endpoint_url=settings.dynamodb_endpoint_url,
+                aws_access_key_id='dummy',
+                aws_secret_access_key='dummy'
+            )
+        else:
+            # Lambda - use IAM role credentials automatically
+            return boto3.resource('dynamodb', region_name=settings.aws_region)
 
 
 if not USE_MOCK_DB:
     def get_dynamodb_client():
         """Get DynamoDB client (for low-level operations)"""
-        config = Config(region_name=settings.aws_region)
-        
-        kwargs = {
-            'region_name': settings.aws_region,
-            'config': config
-        }
-        
         if settings.dynamodb_endpoint_url:
-            kwargs['endpoint_url'] = settings.dynamodb_endpoint_url
-            kwargs['aws_access_key_id'] = 'dummy'
-            kwargs['aws_secret_access_key'] = 'dummy'
-        elif settings.aws_access_key_id and settings.aws_secret_access_key:
-            kwargs['aws_access_key_id'] = settings.aws_access_key_id
-            kwargs['aws_secret_access_key'] = settings.aws_secret_access_key
-        
-        return boto3.client('dynamodb', **kwargs)
+            # Local development with custom endpoint
+            return boto3.client(
+                'dynamodb',
+                region_name=settings.aws_region,
+                endpoint_url=settings.dynamodb_endpoint_url,
+                aws_access_key_id='dummy',
+                aws_secret_access_key='dummy'
+            )
+        else:
+            # Lambda - use IAM role credentials automatically
+            return boto3.client('dynamodb', region_name=settings.aws_region)
     
     dynamodb_client = get_dynamodb_client()
 else:
