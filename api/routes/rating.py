@@ -113,6 +113,17 @@ async def rate_model(
         if 'Item' in cached_rating:
             logger.info(f"Returning cached rating for artifact {id}")
             item = cached_rating['Item']
+            # Convert Decimal back to float for Pydantic
+            from decimal import Decimal
+            def convert_decimals(obj):
+                if isinstance(obj, Decimal):
+                    return float(obj)
+                elif isinstance(obj, dict):
+                    return {k: convert_decimals(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [convert_decimals(i) for i in obj]
+                return obj
+            item = convert_decimals(item)
             return ModelRating(**item)
         
         # 3. Calculate new rating using Phase 1 metrics
@@ -183,10 +194,23 @@ async def rate_model(
             size_score_latency=metrics.get('size_score_latency', 0.0)
         )
         
-        # 5. Cache the rating in DynamoDB
+        # 5. Cache the rating in DynamoDB (convert floats to Decimal)
+        from decimal import Decimal
+        
+        def convert_floats(obj):
+            """Convert floats to Decimal for DynamoDB"""
+            if isinstance(obj, float):
+                return Decimal(str(obj))
+            elif isinstance(obj, dict):
+                return {k: convert_floats(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_floats(i) for i in obj]
+            return obj
+        
         rating_dict = rating.model_dump()
         rating_dict['artifact_id'] = id
         rating_dict['computed_at'] = datetime.utcnow().isoformat()
+        rating_dict = convert_floats(rating_dict)
         
         ratings_table.put_item(Item=rating_dict)
         

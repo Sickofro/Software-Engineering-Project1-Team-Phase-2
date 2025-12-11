@@ -170,12 +170,10 @@ async def list_artifacts(
             ]
             
         else:
-            # Query by name
+            # Query by name using Scan with filter (no GSI available)
             for query in queries:
-                # Use GSI to query by name
-                response = artifacts_table.query(
-                    IndexName='name-index',
-                    KeyConditionExpression='#name = :name',
+                response = artifacts_table.scan(
+                    FilterExpression='#name = :name',
                     ExpressionAttributeNames={'#name': 'name'},
                     ExpressionAttributeValues={':name': query.name}
                 )
@@ -500,10 +498,9 @@ async def search_by_name(
     try:
         artifacts_table = get_artifacts_table()
         
-        # Query using name index
-        response = artifacts_table.query(
-            IndexName='name-index',
-            KeyConditionExpression='#name = :name',
+        # Scan with filter (no GSI available)
+        response = artifacts_table.scan(
+            FilterExpression='#name = :name',
             ExpressionAttributeNames={'#name': 'name'},
             ExpressionAttributeValues={':name': name}
         )
