@@ -240,6 +240,7 @@ async def create_artifact(
             'name': artifact_name,
             'type': artifact_type,
             'url': data.url,
+            'download_url': f"https://your-server.com/download/{artifact_id}",
             'created_at': timestamp,
             'updated_at': timestamp,
             'created_by': 'user',  # TODO: Get from auth token
@@ -275,6 +276,7 @@ async def create_artifact(
         )
 
 
+@router.get("/artifact/{artifact_type}/{id}")
 @router.get("/artifacts/{artifact_type}/{id}")
 async def get_artifact(
     artifact_type: str,
@@ -332,6 +334,7 @@ async def get_artifact(
         )
 
 
+@router.put("/artifact/{artifact_type}/{id}")
 @router.put("/artifacts/{artifact_type}/{id}")
 async def update_artifact(
     artifact_type: str,
@@ -391,6 +394,7 @@ async def update_artifact(
         )
 
 
+@router.delete("/artifact/{artifact_type}/{id}")
 @router.delete("/artifacts/{artifact_type}/{id}")
 async def delete_artifact(
     artifact_type: str,
@@ -483,7 +487,7 @@ async def search_by_regex(
         )
 
 
-@router.get("/artifact/byName/{name}")
+@router.get("/artifact/byName/{name:path}")
 async def search_by_name(
     name: str,
     x_authorization: str = Header(None, alias="X-Authorization")

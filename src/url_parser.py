@@ -88,13 +88,14 @@ class URLParser:
     def parse_dataset_url(self, url: str) -> Optional[DatasetInfo]:
         """Parse a Hugging Face dataset URL"""
         try:
-            # Extract dataset name from URL
-            pattern = r'huggingface\.co/datasets/([^/]+/[^/?]+)'
+            # Extract dataset name from URL - handle both org/dataset and single name formats
+            # First try org/dataset format
+            pattern = r'huggingface\.co/datasets/([^/?]+(?:/[^/?]+)?)'
             match = re.search(pattern, url)
             if not match:
                 return None
             
-            dataset_id = match.group(1)
+            dataset_id = match.group(1).rstrip('/')
             
             # Fetch dataset information from HF API
             api_url = f"https://huggingface.co/api/datasets/{dataset_id}"
