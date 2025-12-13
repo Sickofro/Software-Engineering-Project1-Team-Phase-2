@@ -12,6 +12,7 @@ from ..database import get_artifacts_table, get_ratings_table, get_audit_table
 from src.url_parser import URLParser
 from src.metrics.calculator import MetricsCalculator
 from src.models.model import ModelInfo
+from api.canonicalize import canonicalize_name
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -229,6 +230,7 @@ async def create_artifact(
             )
         
         artifact_name = parsed.get('name', 'unknown')
+        artifact_name = canonicalize_name(artifact_name)
         artifact_id = generate_artifact_id()
         
         # Store in DynamoDB
@@ -503,10 +505,11 @@ async def search_by_name(
         artifacts_table = get_artifacts_table()
         
         # Scan with filter (no GSI available)
+        norm_name = canonicalize_name(name)
         response = artifacts_table.scan(
             FilterExpression='#name = :name',
             ExpressionAttributeNames={'#name': 'name'},
-            ExpressionAttributeValues={':name': name}
+            ExpressionAttributeValues={':name': norm_name}
         )
         
         if not response.get('Items'):
