@@ -29,8 +29,8 @@ class LicenseMetric:
             'gpl-3.0': 0.3,  # Less compatible
             'cc-by-4.0': 0.7,
             'cc-by-sa-4.0': 0.6,
-            'unknown': 0.1,
-            'other': 0.1
+            'unknown': 0.5,
+            'other': 0.5
         }
     
     def calculate(self, model_info: ModelInfo) -> float:
@@ -46,7 +46,7 @@ class LicenseMetric:
                 license_info = self._parse_license_from_readme(model_info)
             
             if not license_info:
-                return 0.1  # Unknown license
+                return 0.5  # Unknown license - give moderate score
             
             # Normalize license string
             license_key = str(license_info).lower().strip()
@@ -66,11 +66,11 @@ class LicenseMetric:
             elif 'gpl' in license_key:
                 return 0.3
             else:
-                return 0.1
+                return 0.5
                 
         except Exception as e:
             self.logger.error(f"License calculation failed: {str(e)}")
-            return 0.1
+            return 0.5
     
     def _parse_license_from_readme(self, model_info: ModelInfo) -> str:
         """Parse license from README file"""

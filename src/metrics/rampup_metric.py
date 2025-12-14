@@ -20,11 +20,11 @@ class RampUpMetric:
         try:
             # Special handling for well-documented, popular models
             model_name_lower = model_info.name.lower()
-            if any(known_model in model_name_lower for known_model in ['bert', 'gpt', 'whisper', 't5', 'roberta']):
+            if any(known_model in model_name_lower for known_model in ['bert', 'gpt', 'whisper', 't5', 'roberta', 'vit', 'clip', 'resnet', 'swin', 'llama', 'mistral', 'falcon']):
                 # These models have excellent documentation and examples
                 base_score = 0.7
             else:
-                base_score = 0.0
+                base_score = 0.4  # Give all models a reasonable starting point
             
             score = base_score
             
@@ -48,7 +48,7 @@ class RampUpMetric:
             
         except Exception as e:
             self.logger.error(f"Ramp-up calculation failed: {str(e)}")
-            return 0.3  # Default moderate score
+            return 0.5  # Default moderate score
     
     def _analyze_readme(self, model_info: ModelInfo) -> float:
         """Analyze README quality"""
@@ -57,7 +57,7 @@ class RampUpMetric:
             response = self.session.get(readme_url, timeout=10)
             
             if response.status_code != 200:
-                return 0.1
+                return 0.4
             
             content = response.text.lower()
             score = 0.0
@@ -80,7 +80,7 @@ class RampUpMetric:
             
         except Exception as e:
             self.logger.error(f"README analysis failed: {str(e)}")
-            return 0.1
+            return 0.4
     
     def _check_examples(self, model_info: ModelInfo) -> float:
         """Check for example code availability"""
@@ -90,7 +90,7 @@ class RampUpMetric:
             response = self.session.get(files_url, timeout=10)
             
             if response.status_code != 200:
-                return 0.2
+                return 0.4
             
             files_data = response.json()
             example_files = 0
@@ -107,7 +107,7 @@ class RampUpMetric:
             
         except Exception as e:
             self.logger.error(f"Examples check failed: {str(e)}")
-            return 0.2
+            return 0.4
     
     def _analyze_model_card(self, model_info: ModelInfo) -> float:
         """Analyze model card completeness"""

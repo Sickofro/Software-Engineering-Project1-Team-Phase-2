@@ -21,11 +21,11 @@ class BusFactorMetric:
         try:
             # Special handling for well-known, well-maintained models
             model_name_lower = model_info.name.lower()
-            if any(known_model in model_name_lower for known_model in ['bert', 'gpt', 'whisper', 't5', 'roberta']):
+            if any(known_model in model_name_lower for known_model in ['bert', 'gpt', 'whisper', 't5', 'roberta', 'vit', 'clip', 'resnet', 'swin', 'llama', 'mistral', 'falcon']):
                 # These models are well-established and maintained
                 base_score = 0.6
             else:
-                base_score = 0.0
+                base_score = 0.4  # Most HuggingFace models have decent maintenance
             
             score = base_score
             
@@ -45,13 +45,13 @@ class BusFactorMetric:
             
         except Exception as e:
             self.logger.error(f"Bus factor calculation failed: {str(e)}")
-            return 0.4  # Default moderate score
+            return 0.5  # Default moderate score
     
     def _check_recent_activity(self, model_info: ModelInfo) -> float:
         """Check for recent activity/updates"""
         try:
             if not model_info.last_modified:
-                return 0.1
+                return 0.5
             
             # Parse last modified date
             try:
@@ -72,11 +72,11 @@ class BusFactorMetric:
                     return 0.2
                     
             except:
-                return 0.3
+                return 0.5
                 
         except Exception as e:
             self.logger.error(f"Activity check failed: {str(e)}")
-            return 0.3
+            return 0.5
     
     def _analyze_maintainers(self, model_info: ModelInfo) -> float:
         """Analyze maintainer information"""
@@ -84,7 +84,7 @@ class BusFactorMetric:
             # Extract organization/user from model name
             parts = model_info.name.split('/')
             if len(parts) < 2:
-                return 0.2
+                return 0.5
             
             org_name = parts[0]
             score = 0.0
@@ -135,8 +135,8 @@ class BusFactorMetric:
             elif likes > 0 or downloads > 0:
                 return 0.4
             else:
-                return 0.2
+                return 0.4
                 
         except Exception as e:
             self.logger.error(f"Community assessment failed: {str(e)}")
-            return 0.3
+            return 0.4

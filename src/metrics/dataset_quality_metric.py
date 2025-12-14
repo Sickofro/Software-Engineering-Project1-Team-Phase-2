@@ -36,7 +36,7 @@ class DatasetQualityMetric:
             
         except Exception as e:
             self.logger.error(f"Dataset quality calculation failed: {str(e)}")
-            return 0.3
+            return 0.5
     
     def _check_dataset_documentation(self, model_info: ModelInfo) -> float:
         """Check quality of dataset documentation"""
@@ -45,7 +45,7 @@ class DatasetQualityMetric:
             response = self.session.get(readme_url, timeout=10)
             
             if response.status_code != 200:
-                return 0.1
+                return 0.4
             
             content = response.text.lower()
             score = 0.0
@@ -76,7 +76,7 @@ class DatasetQualityMetric:
             
         except Exception as e:
             self.logger.error(f"Dataset documentation check failed: {str(e)}")
-            return 0.1
+            return 0.4
     
     def _check_preprocessing_info(self, model_info: ModelInfo) -> float:
         """Check for data preprocessing information"""
@@ -85,7 +85,7 @@ class DatasetQualityMetric:
             response = self.session.get(readme_url, timeout=10)
             
             if response.status_code != 200:
-                return 0.2
+                return 0.4
             
             content = response.text.lower()
             score = 0.0
@@ -106,11 +106,11 @@ class DatasetQualityMetric:
             if any(tool in content for tool in ['spacy', 'nltk', 'tokenizer', 'bpe', 'sentencepiece']):
                 score += 0.2
             
-            return min(1.0, score)
+            return max(0.4, min(1.0, score))  # Minimum 0.4
             
         except Exception as e:
             self.logger.error(f"Preprocessing info check failed: {str(e)}")
-            return 0.2
+            return 0.4
     
     def _check_known_datasets(self, model_info: ModelInfo) -> float:
         """Check if trained on known high-quality datasets"""

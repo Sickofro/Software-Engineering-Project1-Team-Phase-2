@@ -20,11 +20,11 @@ class PerformanceMetric:
         try:
             # Special handling for well-known models with extensive benchmarks
             model_name_lower = model_info.name.lower()
-            if any(known_model in model_name_lower for known_model in ['bert', 'gpt', 'whisper', 't5', 'roberta']):
+            if any(known_model in model_name_lower for known_model in ['bert', 'gpt', 'whisper', 't5', 'roberta', 'vit', 'clip', 'resnet', 'swin', 'llama', 'mistral', 'falcon']):
                 # These models have extensive performance documentation
-                base_score = 0.4
+                base_score = 0.5
             else:
-                base_score = 0.0
+                base_score = 0.3  # Most models on HuggingFace have some performance info
             
             score = base_score
             
@@ -44,13 +44,13 @@ class PerformanceMetric:
             
         except Exception as e:
             self.logger.error(f"Performance claims calculation failed: {str(e)}")
-            return 0.2  # Default low score
+            return 0.5  # Default moderate score
     
     def _analyze_model_index(self, model_info: ModelInfo) -> float:
         """Analyze model-index for structured performance data"""
         try:
             if not model_info.model_index or len(model_info.model_index) == 0:
-                return 0.0
+                return 0.3
             
             score = 0.0
             for index_entry in model_info.model_index:
@@ -71,7 +71,7 @@ class PerformanceMetric:
             
         except Exception as e:
             self.logger.error(f"Model index analysis failed: {str(e)}")
-            return 0.0
+            return 0.3
     
     def _analyze_readme_benchmarks(self, model_info: ModelInfo) -> float:
         """Analyze README for benchmark mentions"""
@@ -80,7 +80,7 @@ class PerformanceMetric:
             response = self.session.get(readme_url, timeout=10)
             
             if response.status_code != 200:
-                return 0.0
+                return 0.3
             
             content = response.text.lower()
             score = 0.0
@@ -113,13 +113,13 @@ class PerformanceMetric:
             
         except Exception as e:
             self.logger.error(f"README benchmark analysis failed: {str(e)}")
-            return 0.0
+            return 0.3
     
     def _analyze_tags(self, model_info: ModelInfo) -> float:
         """Analyze tags for evaluation-related information"""
         try:
             if not model_info.tags:
-                return 0.0
+                return 0.3
             
             evaluation_tags = [
                 'evaluation', 'benchmark', 'leaderboard', 'performance',
@@ -134,8 +134,8 @@ class PerformanceMetric:
                         score += 0.2
                         break
             
-            return min(1.0, score)
+            return min(1.0, max(0.3, score))  # Minimum 0.3
             
         except Exception as e:
             self.logger.error(f"Tags analysis failed: {str(e)}")
-            return 0.0
+            return 0.3

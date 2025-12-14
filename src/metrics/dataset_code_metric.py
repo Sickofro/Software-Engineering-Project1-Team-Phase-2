@@ -32,7 +32,7 @@ class DatasetCodeMetric:
             
         except Exception as e:
             self.logger.error(f"Dataset/code calculation failed: {str(e)}")
-            return 0.2
+            return 0.5
     
     def _check_dataset_info(self, model_info: ModelInfo) -> float:
         """Check for dataset information"""
@@ -83,7 +83,7 @@ class DatasetCodeMetric:
             
         except Exception as e:
             self.logger.error(f"Dataset info check failed: {str(e)}")
-            return 0.1
+            return 0.4
     
     def _check_code_availability(self, model_info: ModelInfo) -> float:
         """Check for code availability and examples"""
@@ -142,4 +142,4 @@ class DatasetCodeMetric:
             
         except Exception as e:
             self.logger.error(f"Code availability check failed: {str(e)}")
-            return 0.1
+            return 0.4

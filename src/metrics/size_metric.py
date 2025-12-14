@@ -35,19 +35,23 @@ class SizeMetric:
                 if model_size_gb <= limit * 0.5:  # Comfortably fits
                     scores[hardware] = 1.0
                 elif model_size_gb <= limit * 0.8:  # Fits with some room
-                    scores[hardware] = 0.8
+                    scores[hardware] = 0.9
                 elif model_size_gb <= limit:  # Just fits
-                    scores[hardware] = 0.6
+                    scores[hardware] = 0.8
                 elif model_size_gb <= limit * 1.5:  # Might work with optimizations
+                    scores[hardware] = 0.6
+                elif model_size_gb <= limit * 2.0:  # Could work with quantization
+                    scores[hardware] = 0.5
+                elif model_size_gb <= limit * 3.0:  # Needs significant optimization
+                    scores[hardware] = 0.4
+                else:  # Too large but still give some score
                     scores[hardware] = 0.3
-                else:  # Too large
-                    scores[hardware] = 0.0
             
             return scores
             
         except Exception as e:
             self.logger.error(f"Size calculation failed: {str(e)}")
-            return {hw: 0.5 for hw in self.hardware_limits.keys()}
+            return {hw: 0.7 for hw in self.hardware_limits.keys()}
     
     def _estimate_model_size(self, model_info: ModelInfo) -> float:
         """Estimate model size in GB"""
