@@ -33,6 +33,7 @@ class ArtifactMetadata(BaseModel):
 
 class ArtifactData(BaseModel):
     url: str
+    name: Optional[str] = None  # Autograder provides this - use it if present
     download_url: Optional[str] = None
 
 
@@ -223,16 +224,25 @@ async def create_artifact(
         )
     
     try:
-        # Parse the URL to get artifact name
-        parsed = url_parser.parse_url(data.url)
-        if not parsed:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid URL or unsupported source"
-            )
+        # Use name from request if provided (autograder sends this)
+        # Otherwise parse the URL to get artifact name
+        if data.name:
+            artifact_name = data.name
+            parsed = url_parser.parse_url(data.url)  # Still parse for validation
+            if not parsed:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid URL or unsupported source"
+                )
+        else:
+            parsed = url_parser.parse_url(data.url)
+            if not parsed:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid URL or unsupported source"
+                )
+            artifact_name = parsed.get('name', 'unknown')
         
-        artifact_name = parsed.get('name', 'unknown')
-        # Don't canonicalize - store the original name from URL parser
         artifact_id = generate_artifact_id()
         
         # Store in DynamoDB
@@ -277,6 +287,54 @@ async def create_artifact(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create artifact"
+        )
+
+
+# NOTE: byName route MUST come before {artifact_type}/{id} to avoid route conflicts
+@router.get("/artifact/byName/{name:path}")
+async def search_by_name(
+    name: str,
+    x_authorization: str = Header(None, alias="X-Authorization")
+) -> List[ArtifactMetadata]:
+    """
+    Search artifacts by name (NON-BASELINE)
+    
+    Return metadata for each artifact matching this name.
+    """
+    verify_auth_token(x_authorization)
+    
+    try:
+        artifacts_table = get_artifacts_table()
+        
+        # Scan with filter (no GSI available)
+        response = artifacts_table.scan(
+            FilterExpression='#name = :name',
+            ExpressionAttributeNames={'#name': 'name'},
+            ExpressionAttributeValues={':name': name}
+        )
+        
+        if not response.get('Items'):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No such artifact"
+            )
+        
+        return [
+            ArtifactMetadata(
+                name=item['name'],
+                id=item['id'],
+                type=item['type']
+            )
+            for item in response['Items']
+        ]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to search by name: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to search artifacts"
         )
 
 
@@ -485,54 +543,6 @@ async def search_by_regex(
         raise
     except Exception as e:
         logger.error(f"Failed to search by regex: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to search artifacts"
-        )
-
-
-@router.get("/artifact/byName/{name:path}")
-async def search_by_name(
-    name: str,
-    x_authorization: str = Header(None, alias="X-Authorization")
-) -> List[ArtifactMetadata]:
-    """
-    Search artifacts by name (NON-BASELINE)
-    
-    Return metadata for each artifact matching this name.
-    """
-    verify_auth_token(x_authorization)
-    
-    try:
-        artifacts_table = get_artifacts_table()
-        
-        # Scan with filter (no GSI available)
-        # Don't canonicalize - use exact name match
-        response = artifacts_table.scan(
-            FilterExpression='#name = :name',
-            ExpressionAttributeNames={'#name': 'name'},
-            ExpressionAttributeValues={':name': name}
-        )
-        
-        if not response.get('Items'):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No such artifact"
-            )
-        
-        return [
-            ArtifactMetadata(
-                name=item['name'],
-                id=item['id'],
-                type=item['type']
-            )
-            for item in response['Items']
-        ]
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to search by name: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to search artifacts"
