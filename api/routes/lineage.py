@@ -46,6 +46,34 @@ def verify_auth_token(x_authorization: Optional[str]):
     return True
 
 
+def lookup_artifact_by_name(name: str) -> Optional[str]:
+    """Look up an artifact ID by name in our database"""
+    try:
+        artifacts_table = get_artifacts_table()
+        response = artifacts_table.scan(
+            FilterExpression='#name = :name',
+            ExpressionAttributeNames={'#name': 'name'},
+            ExpressionAttributeValues={':name': name}
+        )
+        items = response.get('Items', [])
+        if items:
+            return items[0].get('id')
+        
+        # Try with different name formats (hyphen vs slash)
+        alt_name = name.replace('/', '-') if '/' in name else name.replace('-', '/')
+        response = artifacts_table.scan(
+            FilterExpression='#name = :name',
+            ExpressionAttributeNames={'#name': 'name'},
+            ExpressionAttributeValues={':name': alt_name}
+        )
+        items = response.get('Items', [])
+        if items:
+            return items[0].get('id')
+    except Exception as e:
+        logger.error(f"Error looking up artifact: {e}")
+    return None
+
+
 def generate_pseudo_artifact_id(name: str) -> str:
     """Generate a pseudo artifact ID for external dependencies"""
     # Use hash of name to generate consistent IDs
@@ -72,12 +100,12 @@ def extract_huggingface_lineage(model_id: str, artifact_id: str) -> LineageGraph
             source="artifact_metadata"
         ))
         
-        # Fetch model config from HuggingFace API
+        # Fetch model config from HuggingFace API (follow redirects)
         api_url = f"https://huggingface.co/api/models/{model_id}"
-        response = requests.get(api_url, timeout=30)
+        response = requests.get(api_url, timeout=30, allow_redirects=True)
         
         if response.status_code != 200:
-            logger.warning(f"Could not fetch model info for {model_id}")
+            logger.warning(f"Could not fetch model info for {model_id}: status {response.status_code}")
             return LineageGraph(nodes=nodes, edges=edges)
         
         model_data = response.json()
@@ -88,11 +116,13 @@ def extract_huggingface_lineage(model_id: str, artifact_id: str) -> LineageGraph
             # Check for base_model_name_or_path
             base_model = config.get('_name_or_path') or config.get('base_model_name_or_path')
             if base_model and base_model != model_id and '/' in base_model:
-                base_model_id = generate_pseudo_artifact_id(base_model)
+                # Try to find in our database first
+                existing_id = lookup_artifact_by_name(base_model)
+                base_model_id = existing_id or generate_pseudo_artifact_id(base_model)
                 nodes.append(LineageNode(
                     artifact_id=base_model_id,
                     name=base_model,
-                    source="config_json",
+                    source="config_json" if not existing_id else "artifact_metadata",
                     metadata={"type": "base_model"}
                 ))
                 edges.append(LineageEdge(
@@ -107,11 +137,13 @@ def extract_huggingface_lineage(model_id: str, artifact_id: str) -> LineageGraph
         
         for dataset_name in datasets:
             if dataset_name:
-                dataset_id = generate_pseudo_artifact_id(f"dataset:{dataset_name}")
+                # Try to find dataset in our database first
+                existing_id = lookup_artifact_by_name(dataset_name)
+                dataset_id = existing_id or generate_pseudo_artifact_id(f"dataset:{dataset_name}")
                 nodes.append(LineageNode(
                     artifact_id=dataset_id,
                     name=dataset_name,
-                    source="model_card",
+                    source="model_card" if not existing_id else "artifact_metadata",
                     metadata={"type": "training_dataset"}
                 ))
                 edges.append(LineageEdge(
@@ -127,13 +159,15 @@ def extract_huggingface_lineage(model_id: str, artifact_id: str) -> LineageGraph
             if tag.startswith('base_model:'):
                 base_model = tag.replace('base_model:', '')
                 if base_model and base_model != model_id:
-                    base_model_id = generate_pseudo_artifact_id(base_model)
+                    # Try to find in database first
+                    existing_id = lookup_artifact_by_name(base_model)
+                    base_model_id = existing_id or generate_pseudo_artifact_id(base_model)
                     # Check if not already added
                     if not any(n.artifact_id == base_model_id for n in nodes):
                         nodes.append(LineageNode(
                             artifact_id=base_model_id,
                             name=base_model,
-                            source="model_tags",
+                            source="model_tags" if not existing_id else "artifact_metadata",
                             metadata={"type": "base_model"}
                         ))
                         edges.append(LineageEdge(
@@ -228,8 +262,21 @@ async def get_model_lineage(
         
         # Extract lineage based on artifact type
         if 'huggingface.co' in artifact_url:
-            # Extract model ID from URL
-            model_id = artifact.get('name')
+            # Extract model ID from URL (more reliable than stored name)
+            # URL format: https://huggingface.co/org/model or https://huggingface.co/model
+            # First try org/model format
+            url_match = re.search(r'huggingface\.co/([^/]+/[^/?]+)', artifact_url)
+            if url_match:
+                model_id = url_match.group(1)
+            else:
+                # Try single segment format (model without org)
+                url_match = re.search(r'huggingface\.co/([^/?]+)', artifact_url)
+                if url_match and url_match.group(1) not in ['datasets', 'api', 'spaces']:
+                    model_id = url_match.group(1)
+                else:
+                    # Fallback to stored name
+                    model_id = artifact.get('name', '')
+            
             lineage = extract_huggingface_lineage(model_id, id)
         elif 'github.com' in artifact_url:
             lineage = extract_github_lineage(artifact_url, id)
