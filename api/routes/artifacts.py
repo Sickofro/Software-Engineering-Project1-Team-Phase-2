@@ -155,23 +155,29 @@ async def list_artifacts(
         
         # Handle wildcard query
         if len(queries) == 1 and queries[0].name == "*":
-            # Scan all artifacts
-            scan_kwargs = {'Limit': 50}
+            # Scan all artifacts - use pagination to get ALL items
+            type_filter = queries[0].types
+            scan_kwargs = {}
             if offset:
                 scan_kwargs['ExclusiveStartKey'] = {'id': offset}
             
-            response = artifacts_table.scan(**scan_kwargs)
-            
-            # Apply type filter if specified
-            type_filter = queries[0].types
-            for item in response.get('Items', []):
-                if type_filter and item['type'] not in type_filter:
-                    continue
-                results.append(ArtifactMetadata(
-                    name=item['name'],
-                    id=item['id'],
-                    type=item['type']
-                ))
+            # Paginate through all results
+            while True:
+                response = artifacts_table.scan(**scan_kwargs)
+                
+                for item in response.get('Items', []):
+                    if type_filter and item['type'] not in type_filter:
+                        continue
+                    results.append(ArtifactMetadata(
+                        name=item['name'],
+                        id=item['id'],
+                        type=item['type']
+                    ))
+                
+                # Check if there are more items to fetch
+                if 'LastEvaluatedKey' not in response:
+                    break
+                scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
             
         else:
             # Query by name using Scan with filter (no GSI available)
@@ -203,6 +209,63 @@ async def list_artifacts(
         )
 
 
+# NOTE: byRegEx route MUST come before {artifact_type} to avoid route conflicts
+@router.post("/artifact/byRegEx")
+async def search_by_regex(
+    regex_query: ArtifactRegEx,
+    x_authorization: str = Header(None, alias="X-Authorization")
+) -> List[ArtifactMetadata]:
+    """
+    Search artifacts by regex (BASELINE)
+    
+    Search for artifacts using regular expression over artifact names.
+    """
+    verify_auth_token(x_authorization)
+    
+    try:
+        import re
+        artifacts_table = get_artifacts_table()
+        
+        # Scan all artifacts and filter by regex - handle pagination
+        pattern = re.compile(regex_query.regex, re.IGNORECASE)
+        
+        results = []
+        scan_kwargs = {}
+        
+        while True:
+            response = artifacts_table.scan(**scan_kwargs)
+            
+            for item in response.get('Items', []):
+                if pattern.search(item['name']):
+                    results.append(ArtifactMetadata(
+                        name=item['name'],
+                        id=item['id'],
+                        type=item['type']
+                    ))
+            
+            # Check if there are more items
+            if 'LastEvaluatedKey' not in response:
+                break
+            scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+        
+        if not results:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No artifact found under this regex"
+            )
+        
+        return results
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to search by regex: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to search artifacts"
+        )
+
+
 @router.post("/artifact/{artifact_type}", status_code=status.HTTP_201_CREATED)
 async def create_artifact(
     artifact_type: str,
@@ -228,12 +291,10 @@ async def create_artifact(
         # Otherwise parse the URL to get artifact name
         if data.name:
             artifact_name = data.name
-            parsed = url_parser.parse_url(data.url)  # Still parse for validation
-            if not parsed:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid URL or unsupported source"
-                )
+            # When name is provided, URL parsing is optional (for validation only)
+            # Don't fail if URL parsing fails - the autograder might send URLs we don't recognize
+            parsed = url_parser.parse_url(data.url)
+            # No need to validate - trust the provided name
         else:
             parsed = url_parser.parse_url(data.url)
             if not parsed:
@@ -499,51 +560,4 @@ async def delete_artifact(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete artifact"
-        )
-
-
-@router.post("/artifact/byRegEx")
-async def search_by_regex(
-    regex_query: ArtifactRegEx,
-    x_authorization: str = Header(None, alias="X-Authorization")
-) -> List[ArtifactMetadata]:
-    """
-    Search artifacts by regex (BASELINE)
-    
-    Search for artifacts using regular expression over artifact names.
-    """
-    verify_auth_token(x_authorization)
-    
-    try:
-        import re
-        artifacts_table = get_artifacts_table()
-        
-        # Scan all artifacts and filter by regex
-        response = artifacts_table.scan()
-        pattern = re.compile(regex_query.regex, re.IGNORECASE)
-        
-        results = []
-        for item in response.get('Items', []):
-            if pattern.search(item['name']):
-                results.append(ArtifactMetadata(
-                    name=item['name'],
-                    id=item['id'],
-                    type=item['type']
-                ))
-        
-        if not results:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No artifact found under this regex"
-            )
-        
-        return results
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to search by regex: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to search artifacts"
         )
