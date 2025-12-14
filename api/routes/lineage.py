@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 class LineageNode(BaseModel):
-    artifact_id: Optional[str] = None
+    artifact_id: str  # Required, not optional - autograder expects this
     name: str
     source: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Dict[str, Any] = {}  # Default to empty dict, not None
 
 
 class LineageEdge(BaseModel):

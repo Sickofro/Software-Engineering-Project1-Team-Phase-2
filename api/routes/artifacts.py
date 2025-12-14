@@ -12,7 +12,6 @@ from ..database import get_artifacts_table, get_ratings_table, get_audit_table
 from src.url_parser import URLParser
 from src.metrics.calculator import MetricsCalculator
 from src.models.model import ModelInfo
-from api.canonicalize import canonicalize_name
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -161,14 +160,17 @@ async def list_artifacts(
                 scan_kwargs['ExclusiveStartKey'] = {'id': offset}
             
             response = artifacts_table.scan(**scan_kwargs)
-            results = [
-                ArtifactMetadata(
+            
+            # Apply type filter if specified
+            type_filter = queries[0].types
+            for item in response.get('Items', []):
+                if type_filter and item['type'] not in type_filter:
+                    continue
+                results.append(ArtifactMetadata(
                     name=item['name'],
                     id=item['id'],
                     type=item['type']
-                )
-                for item in response.get('Items', [])
-            ]
+                ))
             
         else:
             # Query by name using Scan with filter (no GSI available)
@@ -230,7 +232,7 @@ async def create_artifact(
             )
         
         artifact_name = parsed.get('name', 'unknown')
-        artifact_name = canonicalize_name(artifact_name)
+        # Don't canonicalize - store the original name from URL parser
         artifact_id = generate_artifact_id()
         
         # Store in DynamoDB
@@ -505,11 +507,11 @@ async def search_by_name(
         artifacts_table = get_artifacts_table()
         
         # Scan with filter (no GSI available)
-        norm_name = canonicalize_name(name)
+        # Don't canonicalize - use exact name match
         response = artifacts_table.scan(
             FilterExpression='#name = :name',
             ExpressionAttributeNames={'#name': 'name'},
-            ExpressionAttributeValues={':name': norm_name}
+            ExpressionAttributeValues={':name': name}
         )
         
         if not response.get('Items'):
