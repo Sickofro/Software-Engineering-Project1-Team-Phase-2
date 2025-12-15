@@ -1,5 +1,6 @@
 // API Configuration
-const API_BASE_URL = window.location.origin;
+// Use AWS deployed API
+const API_BASE_URL = 'https://zqux1td8ae.execute-api.us-east-1.amazonaws.com';
 
 // DOM Elements
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -264,26 +265,29 @@ document.getElementById('costForm').addEventListener('submit', async (e) => {
 function displayCostResult(data, url) {
     const container = document.getElementById('costResult');
     
+    // Extract cost from response format: {id: {total_cost: X}}
+    const artifactId = Object.keys(data)[0];
+    const costData = data[artifactId] || {};
+    const totalCostMB = costData.total_cost || 0;
+    
     container.innerHTML = `
         <div class="card">
             <div class="card-header">Cost Analysis</div>
             <div class="cost-info">
                 <div class="cost-item">
-                    <div class="cost-value">${formatBytes(data.total_size_bytes || 0)}</div>
+                    <div class="cost-value">${totalCostMB.toFixed(2)} MB</div>
                     <div class="cost-label">Total Size</div>
                 </div>
                 <div class="cost-item">
-                    <div class="cost-value">${data.file_count || 'N/A'}</div>
-                    <div class="cost-label">File Count</div>
+                    <div class="cost-value">${artifactId}</div>
+                    <div class="cost-label">Artifact ID</div>
                 </div>
             </div>
         </div>
         
         <div class="card">
             <div class="card-header">Details</div>
-            <p><strong>Artifact:</strong> ${data.artifact_name || 'N/A'}</p>
             <p><strong>URL:</strong> ${url}</p>
-            ${data.notes ? `<p><strong>Notes:</strong> ${data.notes}</p>` : ''}
         </div>
     `;
     

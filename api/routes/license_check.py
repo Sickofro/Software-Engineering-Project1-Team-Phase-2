@@ -19,7 +19,19 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 class LicenseCheckRequest(BaseModel):
-    github_url: str
+    github_url: str = None
+    repository_url: str = None  # Frontend sends this field
+    
+    def get_github_url(self) -> str:
+        """Get the GitHub URL from either field"""
+        return self.github_url or self.repository_url or ""
+
+
+class LicenseCheckResponse(BaseModel):
+    compatible: bool
+    model_license: str
+    repository_license: str
+    explanation: str = ""
 
 
 # ============================================================================
@@ -210,7 +222,7 @@ async def check_license(
     id: str,
     request: LicenseCheckRequest,
     x_authorization: str = Header(None, alias="X-Authorization")
-) -> bool:
+) -> LicenseCheckResponse:
     """
     Assess license compatibility for fine-tune and inference usage (BASELINE)
     
@@ -223,7 +235,7 @@ async def check_license(
         x_authorization: Auth token
         
     Returns:
-        True if licenses are compatible, False otherwise
+        LicenseCheckResponse with compatibility status and license details
     """
     verify_auth_token(x_authorization)
     
@@ -249,15 +261,36 @@ async def check_license(
         
         logger.info(f"Artifact {id} license: {artifact_license}")
         
-        # Get GitHub license
-        github_license = get_github_license(request.github_url)
+        # Get GitHub license - accept either field name
+        github_url = request.get_github_url()
+        if not github_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Repository URL is required"
+            )
+        
+        github_license = get_github_license(github_url)
         logger.info(f"GitHub repo license: {github_license}")
         
         # Check compatibility
         is_compatible = check_license_compatibility(artifact_license, github_license)
         
         logger.info(f"License compatibility check: {is_compatible}")
-        return is_compatible
+        
+        # Generate explanation
+        if is_compatible:
+            explanation = f"The {artifact_license} license is compatible with the {github_license} license for fine-tuning and inference."
+        elif artifact_license == 'unknown' or github_license == 'unknown':
+            explanation = "Unable to determine compatibility because one or both licenses are unknown."
+        else:
+            explanation = f"The {artifact_license} license may not be compatible with the {github_license} license. Please review the license terms."
+        
+        return LicenseCheckResponse(
+            compatible=is_compatible,
+            model_license=artifact_license,
+            repository_license=github_license,
+            explanation=explanation
+        )
         
     except HTTPException:
         raise

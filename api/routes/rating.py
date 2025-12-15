@@ -74,18 +74,10 @@ def verify_auth_token(x_authorization: Optional[str]):
 # Endpoints
 # ============================================================================
 
-@router.get("/artifact/model/{id}/rate")
-async def rate_model(
-    id: str,
-    x_authorization: str = Header(None, alias="X-Authorization")
-) -> ModelRating:
+async def rate_artifact_generic(id: str, expected_type: str = None) -> ModelRating:
     """
-    Get ratings for this model artifact (BASELINE)
-    
-    Returns comprehensive rating metrics for the specified model.
+    Generic rating calculation for any artifact type.
     """
-    verify_auth_token(x_authorization)
-    
     try:
         # 1. Get artifact from database
         artifacts_table = get_artifacts_table()
@@ -98,12 +90,13 @@ async def rate_model(
             )
         
         artifact = response['Item']
+        artifact_type = artifact.get('type', 'model')
         
-        # Verify it's a model
-        if artifact.get('type') != 'model':
+        # Verify type matches if expected_type is provided
+        if expected_type and artifact_type != expected_type:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Rating is only supported for model artifacts"
+                detail=f"Artifact type mismatch. Expected {expected_type}, got {artifact_type}"
             )
         
         # 2. Check if rating already exists in cache
@@ -127,17 +120,15 @@ async def rate_model(
             return ModelRating(**item)
         
         # 3. Calculate new rating using Phase 1 metrics
-        logger.info(f"Calculating new rating for artifact {id}: {artifact['name']}")
+        logger.info(f"Calculating new rating for artifact {id}: {artifact['name']} (type: {artifact_type})")
         
         # Parse URL to get model info
         url = artifact['url']
         parsed = url_parser.parse_url(url)
         
-        if not parsed or parsed.get('type') != 'model':
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid model URL or unable to parse"
-            )
+        # For non-model artifacts or if parsing fails, use defaults
+        if not parsed:
+            parsed = {'type': artifact_type, 'owner': '', 'name': artifact['name']}
         
         # Create ModelInfo object
         model_info = ModelInfo(
@@ -160,9 +151,10 @@ async def rate_model(
         total_latency = time.time() - start_time
         
         # 4. Format response according to OpenAPI spec
+        category = artifact_type.upper() if artifact_type else "MODEL"
         rating = ModelRating(
             name=artifact['name'],
-            category="MODEL",
+            category=category,
             net_score=metrics.get('net_score', 0.0),
             net_score_latency=total_latency,
             ramp_up_time=metrics.get('ramp_up_time', 0.0),
@@ -221,8 +213,53 @@ async def rate_model(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to rate model {id}: {str(e)}", exc_info=True)
+        logger.error(f"Failed to rate artifact {id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"The artifact rating system encountered an error: {str(e)}"
         )
+
+
+# ============================================================================
+# Route Handlers - Call the generic function with type verification
+# ============================================================================
+
+@router.get("/artifact/model/{id}/rate")
+async def rate_model(
+    id: str,
+    x_authorization: str = Header(None, alias="X-Authorization")
+) -> ModelRating:
+    """Get ratings for a model artifact"""
+    verify_auth_token(x_authorization)
+    return await rate_artifact_generic(id, expected_type='model')
+
+
+@router.get("/artifact/dataset/{id}/rate")
+async def rate_dataset(
+    id: str,
+    x_authorization: str = Header(None, alias="X-Authorization")
+) -> ModelRating:
+    """Get ratings for a dataset artifact"""
+    verify_auth_token(x_authorization)
+    return await rate_artifact_generic(id, expected_type='dataset')
+
+
+@router.get("/artifact/code/{id}/rate")
+async def rate_code(
+    id: str,
+    x_authorization: str = Header(None, alias="X-Authorization")
+) -> ModelRating:
+    """Get ratings for a code artifact"""
+    verify_auth_token(x_authorization)
+    return await rate_artifact_generic(id, expected_type='code')
+
+
+# Generic rate endpoint that accepts any artifact type
+@router.get("/artifacts/{id}/rate")
+async def rate_any_artifact(
+    id: str,
+    x_authorization: str = Header(None, alias="X-Authorization")
+) -> ModelRating:
+    """Get ratings for any artifact type"""
+    verify_auth_token(x_authorization)
+    return await rate_artifact_generic(id, expected_type=None)

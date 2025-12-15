@@ -83,9 +83,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Include routers
+# IMPORTANT: Rating router must be included BEFORE artifacts router
+# because /artifacts/{id}/rate must match before /artifacts/{artifact_type}/{id}
 app.include_router(health.router, tags=["Health"])
-app.include_router(artifacts.router, tags=["Artifacts"])
 app.include_router(rating.router, tags=["Rating"])
+app.include_router(artifacts.router, tags=["Artifacts"])
 app.include_router(cost.router, tags=["Cost"])
 app.include_router(lineage.router, tags=["Lineage"])
 app.include_router(license_check.router, tags=["License"])
